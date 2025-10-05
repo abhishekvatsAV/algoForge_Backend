@@ -1,4 +1,5 @@
 import express from "express";
+import cors from "cors";
 import path from "path";
 import { exec } from "child_process";
 import fs from "fs";
@@ -10,11 +11,16 @@ const MAX_CONCURRENT_EXECUTIONS = 2;
 let currentExecutions = 0;
 
 const app = express();
-app.use(express.json());
 
+// Middleware
+app.use(cors());
+app.use(express.json({ limit: "1mb" })); // Increase if needed
+
+// Run endpoint - accepts JSON with code and input as strings
 app.post("/run", async (req, res) => {
   if (currentExecutions >= MAX_CONCURRENT_EXECUTIONS) {
     return res.status(503).json({
+      success: false,
       error: "Server busy. Please try again in a moment.",
     });
   }
@@ -22,59 +28,110 @@ app.post("/run", async (req, res) => {
   currentExecutions++;
 
   try {
-    const { code, language, input = "" } = req.body;
+    const { code, input = "", language } = req.body;
 
+    // Validation
     if (!code || !language) {
       currentExecutions--;
-      return res.status(400).json({ error: "Code and language required" });
+      return res.status(400).json({
+        success: false,
+        error: "Code and language are required",
+      });
     }
 
-    const tempDir = path.join(__dirname, "temp");
-    if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
+    if (!["js", "cpp"].includes(language)) {
+      currentExecutions--;
+      return res.status(400).json({
+        success: false,
+        error: "Language must be 'js' or 'cpp'",
+      });
+    }
+
+    // Create unique execution directory
+    const executionId = Date.now() + "_" + Math.random().toString(36).substr(2, 9);
+    const execDir = path.join(__dirname, "temp", executionId);
+    fs.mkdirSync(execDir, { recursive: true });
 
     const fileName = `Main.${language === "js" ? "js" : "cpp"}`;
-    const inputFile = path.join(tempDir, "input.txt");
-    const filePath = path.join(tempDir, fileName);
+    const codePath = path.join(execDir, fileName);
+    const inputPath = path.join(execDir, "input.txt");
+    const outputPath = path.join(execDir, "output.txt");
 
-    fs.writeFileSync(filePath, code);
-    fs.writeFileSync(inputFile, input);
+    // Write files
+    fs.writeFileSync(codePath, code);
+    fs.writeFileSync(inputPath, input);
+
+    console.log(`[${executionId}] Executing ${language} code`);
 
     let dockerCmd;
     if (language === "js") {
-      dockerCmd = `docker run --rm -v "${tempDir}":/app node:22 bash -c "node /app/${fileName} < /app/input.txt"`;
+      dockerCmd = `docker run --rm --memory="256m" --cpus="0.5" -v "${execDir}":/app node:22 bash -c "node /app/${fileName} < /app/input.txt > /app/output.txt 2>&1"`;
     } else if (language === "cpp") {
-      dockerCmd = `docker run --rm -v "${tempDir}":/app gcc:15 bash -c "g++ /app/${fileName} -o /app/a.out && cat /app/input.txt | /app/a.out"`;
-    } else {
-      currentExecutions--;
-      return res.status(400).json({ error: "Unsupported language" });
+      dockerCmd = `docker run --rm --memory="256m" --cpus="0.5" -v "${execDir}":/app gcc:15 bash -c "g++ /app/${fileName} -o /app/a.out 2> /app/output.txt && /app/a.out < /app/input.txt 2>&1" >> "${outputPath}"`;
     }
 
     exec(dockerCmd, { timeout: 10000, maxBuffer: 1024 * 1024 }, (err, stdout, stderr) => {
       currentExecutions--;
+
       try {
-        fs.unlinkSync(filePath);
-        fs.unlinkSync(inputFile);
-      } catch (cleanupErr) {
-        console.error("Cleanup error:", cleanupErr);
-      }
+        let output = "";
 
-      if (err) {
-        return res.status(500).json({
-          error: stderr || err.message,
-          details: err.toString(),
-          code: err.code,
+        // Read output file
+        if (fs.existsSync(outputPath)) {
+          output = fs.readFileSync(outputPath, "utf8");
+        } else {
+          // Fallback to stdout/stderr if output.txt wasn't created
+          output = stdout || stderr || (err ? err.message : "No output generated");
+        }
+
+        console.log(`[${executionId}] Execution completed`);
+
+        // Send JSON response
+        res.json({
+          success: true,
+          output: output,
+          executionId: executionId,
         });
+      } catch (readErr) {
+        console.error(`[${executionId}] Error reading output:`, readErr);
+        res.status(500).json({
+          success: false,
+          error: "Failed to read execution results",
+          details: readErr.message,
+        });
+      } finally {
+        // Clean up
+        setTimeout(() => {
+          try {
+            fs.rmSync(execDir, { recursive: true, force: true });
+            console.log(`[${executionId}] Cleaned up`);
+          } catch (cleanupErr) {
+            console.error(`[${executionId}] Cleanup error:`, cleanupErr);
+          }
+        }, 1000);
       }
-
-      res.json({ output: stdout || stderr });
     });
   } catch (error) {
     currentExecutions--;
-    console.error(error);
-    res.status(500).json({ error: error.message });
+    console.error("Unexpected error:", error);
+    res.status(500).json({
+      success: false,
+      error: "Internal server error",
+      details: error.message,
+    });
   }
 });
 
-app.listen(4000, () => {
-  console.log("listening on port 4000");
+// Health check
+app.get("/health", (req, res) => {
+  res.json({
+    status: "ok",
+    currentExecutions: currentExecutions,
+    maxExecutions: MAX_CONCURRENT_EXECUTIONS,
+  });
+});
+
+const PORT = process.env.PORT || 4000;
+app.listen(PORT, () => {
+  console.log(`Code execution server listening on port ${PORT}`);
 });
