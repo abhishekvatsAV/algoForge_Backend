@@ -4,6 +4,8 @@ import path from "path";
 import { exec } from "child_process";
 import fs from "fs";
 import { fileURLToPath } from "url";
+import userRoutes from "./routes/user.js";
+import { checkAuth } from "./middlewares/auth.js";
 
 const __fileName = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__fileName);
@@ -15,6 +17,9 @@ const app = express();
 // Middleware
 app.use(cors());
 app.use(express.json({ limit: "1mb" })); // Increase if needed
+
+app.use("/user", userRoutes);
+app.use(checkAuth);
 
 // Run endpoint - accepts JSON with code and input as strings
 app.post("/run", async (req, res) => {

@@ -14,16 +14,27 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-
 model User {
-  id Int @id @default(autoincrement())
-  email String @unique
-  createdAt DateTime @default(now())
-  updatedAt DateTime @default(now()) @updatedAt
+  id           Int       @id @default(autoincrement())
+  email        String    @unique
+  passwordHash String    @unique
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @default(now()) @updatedAt
+  problems     Problem[]
 }
 
 model Problem {
-  id Int @id @default(autoincrement())
-  
+  id                Int      @id @default(autoincrement())
+  createdById       Int
+  createdBy         User     @relation(fields: [createdById], references: [id])
+  isSolved          Boolean  @default(false)
+  title             String   @db.VarChar(255)
+  problemStatement  String
+  example_tc_input  String
+  example_tc_output String
+  hidden_input      String
+  expected_output   String
+  tags              String[]
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @default(now()) @updatedAt
 }
-
