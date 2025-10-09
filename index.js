@@ -6,6 +6,9 @@ import fs from "fs";
 import { fileURLToPath } from "url";
 import userRoutes from "./routes/user.js";
 import { checkAuth } from "./middlewares/auth.js";
+import { main } from "./ai/generateProblem.js";
+import { PrismaClient } from "./generated/prisma/index.js";
+const prisma = new PrismaClient();
 
 const __fileName = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__fileName);
@@ -17,6 +20,20 @@ const app = express();
 // Middleware
 app.use(cors());
 app.use(express.json({ limit: "1mb" })); // Increase if needed
+
+// Health check
+app.get("/health", async (req, res) => {
+  res.json({
+    status: "ok",
+    currentExecutions: currentExecutions,
+    maxExecutions: MAX_CONCURRENT_EXECUTIONS,
+  });
+});
+
+const PORT = process.env.PORT || 4000;
+app.listen(PORT, () => {
+  console.log(`Code execution server listening on port ${PORT}`);
+});
 
 app.use("/user", userRoutes);
 app.use(checkAuth);
@@ -127,16 +144,22 @@ app.post("/run", async (req, res) => {
   }
 });
 
-// Health check
-app.get("/health", (req, res) => {
-  res.json({
-    status: "ok",
-    currentExecutions: currentExecutions,
-    maxExecutions: MAX_CONCURRENT_EXECUTIONS,
-  });
-});
+app.get("/generate", async (req, res) => {
+  let problem = await main();
+  if (!problem) {
+    return res.status(400).json({ message: "Sorry Unable to generate problem right now try again after sometime!!" });
+  }
 
-const PORT = process.env.PORT || 4000;
-app.listen(PORT, () => {
-  console.log(`Code execution server listening on port ${PORT}`);
+  problem.createdById = req.user.id;
+
+  try {
+    const newProblem = await prisma.problem.create({
+      data: problem,
+    });
+
+    return res.status(200).json({ problem: newProblem });
+  } catch (e) {
+    console.log("error : ", e.message);
+    return res.status(400).json({ message: "Unable to create problem!!" });
+  }
 });
