@@ -23,6 +23,12 @@ model User {
   problems     Problem[]
 }
 
+enum DifficultyLevel {
+  Easy
+  Medium
+  Hard
+}
+
 model Problem {
   id                Int      @id @default(autoincrement())
   createdById       Int
@@ -34,6 +40,7 @@ model Problem {
   example_tc_output String
   hidden_input      String
   expected_output   String
+  difficultyLevel  DifficultyLevel @default(Easy)
   tags              String[]
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @default(now()) @updatedAt
