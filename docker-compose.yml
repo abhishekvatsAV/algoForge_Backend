@@ -11,6 +11,7 @@ services:
       - PORT=4000
     env_file:
       - .env
+    command: sh -c "sleep 5 && npx prisma migrate deploy && node index.js"
     volumes:
       # Shared volume so the backend and dind share the temp folder
       - shared-temp:/app/temp
