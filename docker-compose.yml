@@ -3,6 +3,7 @@ version: '3.8'
 services:
   backend:
     build: .
+    restart: always
     ports:
       - "4000:4000"
     environment:
@@ -22,6 +23,7 @@ services:
   # Docker-in-Docker sidecar container
   dind:
     image: docker:dind
+    restart: always
     privileged: true
     environment:
       - DOCKER_TLS_CERTDIR=
@@ -36,6 +38,7 @@ services:
 
   db:
     image: postgres:15
+    restart: always
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: passAdmin
