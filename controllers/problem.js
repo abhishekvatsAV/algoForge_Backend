@@ -84,4 +84,27 @@ export const getLatest3Problems = async (req, res) => {
   }
 };
 
+export const deleteProblem = async (req, res) => {
+  try {
+    const { id: problemID } = req.body;
+    const userId = req.user.id;
 
+    const problem = await prisma.problem.delete({
+      where: {
+        id: problemID,
+        createdById: userId,
+      },
+    });
+
+    if (!problem) {
+      return res.status(400).json({ isSuccess: false, error: "Problem is not found." });
+    }
+
+    console.log("🔥 ~ problem: ", problem);
+
+    return res.status(200).json({ isSuccess: true, message: "Problem is deleted succeffully" });
+  } catch (error) {
+    console.log("🔥 ~ error: ", error);
+    return res.status(400).json({ isSuccess: false, message: ` Getting Error while Deleting : ${error.message}` });
+  }
+};

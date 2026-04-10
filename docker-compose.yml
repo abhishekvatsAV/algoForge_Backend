@@ -1,0 +1,55 @@
+version: '3.8'
+
+services:
+  backend:
+    build: .
+    ports:
+      - "4000:4000"
+    environment:
+      # Use the docker daemon running in the "dind" sidecar container!
+      - DOCKER_HOST=tcp://dind:2375
+      - PORT=4000
+    env_file:
+      - .env
+    volumes:
+      # Shared volume so the backend and dind share the temp folder
+      - shared-temp:/app/temp
+    depends_on:
+      - dind
+      - db
+
+
+  # Docker-in-Docker sidecar container
+  dind:
+    image: docker:dind
+    privileged: true
+    environment:
+      - DOCKER_TLS_CERTDIR=
+    command: ["--tls=false"]
+    volumes:
+      # Shared volume! Here dind mounts the exact same /app/temp path.
+      # When backend sends a "docker run -v /app/temp/xx:/app" command, 
+      # the DinD daemon correctly finds the files inside this shared volume.
+      - shared-temp:/app/temp
+    ports:
+      - "2375:2375"
+
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: passAdmin
+      POSTGRES_DB: portfolio_site_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+
+volumes:
+  shared-temp:
+  pgdata:
+

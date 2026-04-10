@@ -3,25 +3,35 @@ import { GoogleGenAI } from "@google/genai";
 const ai = new GoogleGenAI({});
 
 export async function main() {
+  // Define the strict format and persona in the System Instruction
+  const systemInstruction = `You are a strict CodeChef platform problem generator. Your sole task is to create one single DSA problem and output the result ONLY in the following JSON format. You must not include any other text, markdown fences (like \`\`\`json), or conversational fillers.
+
+The JSON structure must be:
+{
+  "title": "String",
+  "problemStatement": "String",
+  "example_tc_input": "String",
+  "example_tc_output": "String",
+  "hidden_input": "String",
+  "expected_output": "String",
+  "difficultyLevel": "String", // Must be "Easy", "Medium", or "Hard"
+  "tags": "String[]"
+}
+`;
+
+  // Define the specific constraints for the problem in the User Content
+  const userContent = `
+    Generate one DSA problem with the following constraints:
+    1. The 'example_tc_input' must contain 2 test cases (T=2 as the first line).
+    2. The 'hidden_input' must contain 3 to 5 test cases (T=3 to 5 as the first line).
+    3. Ensure the 'hidden_input' and 'expected_output' provide a robust set of test cases.
+  `;
+
   const response = await ai.models.generateContent({
     model: "gemini-2.5-flash",
-    contents: `
-      Think yourself as a codechef platform problem generator like i want you to create 1 dsa problem and only give me output in json format and the fields will be like this 
-      {
-        title             String   @db.VarChar(255)
-        problemStatement  String
-        example_tc_input  String
-        example_tc_output String
-        hidden_input      String
-        expected_output   String
-        difficultyLevel   String   here value must be between ("Easy", "Medium", "Hard")
-        tags              String[]
-      }
-
-      also keep in mind like you have to create 2 example test cases so for that example_tc_input should be like first line will be 2 for 2 testcases these will be shown to the user and then you need to give 3 to 5 hidden input and expected output for those rest of the fields are self explanortory so do give output in json with these fields only no extra field and no name changes of the fields.
-      Keep in mind you only have to give only one problem 
-    `,
+    contents: userContent,
     config: {
+      systemInstruction: systemInstruction, // Apply the system instruction here
       thinkingConfig: {
         thinkingBudget: 0, // Disables thinking
       },
@@ -30,25 +40,25 @@ export async function main() {
 
   let jsonString = response.text.trim();
 
-  // 1. Check for and remove markdown fences (```json ... ```)
+  // The System Instruction should eliminate markdown fences, but this check remains a good safeguard.
   if (jsonString.startsWith("```json")) {
-    jsonString = jsonString.substring(7); // Remove '```json'
+    jsonString = jsonString.substring(7);
   }
   if (jsonString.endsWith("```")) {
-    jsonString = jsonString.substring(0, jsonString.length - 3); // Remove '```'
+    jsonString = jsonString.substring(0, jsonString.length - 3);
   }
 
-  // 2. Trim again to remove any extra whitespace/newlines
   jsonString = jsonString.trim();
 
   try {
     let problem = JSON.parse(jsonString);
+
+    // console.log("🔥 ~ generateProblem.js:54 ~ problem: ", problem);
     return problem;
-    // console.log(response.text); // Optional: See original response
   } catch (e) {
     console.error("Failed to parse JSON:", e);
     console.error("String that failed to parse:\n", jsonString);
+    // You might throw an error here or return a standard error object
     return null;
   }
 }
-

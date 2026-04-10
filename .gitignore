@@ -60,3 +60,4 @@ out/
 .LSOverride
 
 /generated/prisma
+/temp
