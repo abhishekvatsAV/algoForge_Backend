@@ -13,7 +13,7 @@ export const getAllProblems = async (req, res) => {
     return res.status(200).json({ problems: allProblems });
   } catch (error) {
     console.error("🔥 ~ error: ", error);
-    return res.json(400).json({ message: error.message });
+    return res.status(400).json({ message: error.message });
   }
 };
 
@@ -33,7 +33,7 @@ export const getLatestUnsolvedProblemByUser = async (req, res) => {
   try {
     const userId = req.user.id;
 
-    const problem = await prisma.problem.findFirst({
+    let problem = await prisma.problem.findFirst({
       where: {
         createdById: userId,
         isSolved: false,
