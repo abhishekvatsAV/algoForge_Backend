@@ -92,10 +92,10 @@ app.post("/run", async (req, res) => {
     if (language === "js") {
       dockerCmd = `docker run --rm --memory="256m" --cpus="0.5" -v "${execDir}":/app node:22 bash -c "node /app/${fileName} < /app/input.txt > /app/output.txt 2>&1"`;
     } else if (language === "cpp") {
-      dockerCmd = `docker run --rm --memory="256m" --cpus="0.5" -v "${execDir}":/app gcc:15 bash -c "g++ /app/${fileName} -o /app/a.out 2> /app/output.txt && /app/a.out < /app/input.txt 2>&1" >> "${outputPath}"`;
+      dockerCmd = `docker run --rm --memory="256m" --cpus="0.5" -v "${execDir}":/app gcc:15 bash -c "g++ /app/${fileName} -o /app/a.out > /app/output.txt 2>&1 && /app/a.out < /app/input.txt >> /app/output.txt 2>&1"`;
     }
 
-    exec(dockerCmd, { timeout: 10000, maxBuffer: 1024 * 1024 }, (err, stdout, stderr) => {
+    exec(dockerCmd, { timeout: 20000, maxBuffer: 1024 * 1024 }, (err, stdout, stderr) => {
       currentExecutions--;
 
       try {
@@ -208,10 +208,10 @@ app.post("/submit", async (req, res) => {
     if (language === "js") {
       dockerCmd = `docker run --rm --memory="256m" --cpus="0.5" -v "${execDir}":/app node:22 bash -c "node /app/${fileName} < /app/input.txt > /app/output.txt 2>&1"`;
     } else if (language === "cpp") {
-      dockerCmd = `docker run --rm --memory="256m" --cpus="0.5" -v "${execDir}":/app gcc:15 bash -c "g++ /app/${fileName} -o /app/a.out 2> /app/output.txt && /app/a.out < /app/input.txt 2>&1" >> "${outputPath}"`;
+      dockerCmd = `docker run --rm --memory="256m" --cpus="0.5" -v "${execDir}":/app gcc:15 bash -c "g++ /app/${fileName} -o /app/a.out > /app/output.txt 2>&1 && /app/a.out < /app/input.txt >> /app/output.txt 2>&1"`;
     }
 
-    exec(dockerCmd, { timeout: 10000, maxBuffer: 1024 * 1024 }, async (err, stdout, stderr) => {
+    exec(dockerCmd, { timeout: 20000, maxBuffer: 1024 * 1024 }, async (err, stdout, stderr) => {
       currentExecutions--;
 
       try {
