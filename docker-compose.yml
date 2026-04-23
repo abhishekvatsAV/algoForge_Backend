@@ -2,6 +2,10 @@
 services:
   backend:
     build: .
+    labels:
+      com.datadoghq.tags.env: "production"
+      com.datadoghq.tags.service: "algoforge-backend"
+      com.datadoghq.tags.version: "1.0.0"
     restart: always
     ports:
       - "4000:4000"
@@ -23,6 +27,10 @@ services:
   # Docker-in-Docker sidecar container
   dind:
     image: docker:dind
+    labels:
+      com.datadoghq.tags.env: "production"
+      com.datadoghq.tags.service: "algoforge-dind"
+      com.datadoghq.tags.version: "1.0.0"
     restart: always
     privileged: true
     environment:
@@ -38,6 +46,10 @@ services:
 
   db:
     image: postgres:15
+    labels:
+      com.datadoghq.tags.env: "production"
+      com.datadoghq.tags.service: "algoforge-db"
+      com.datadoghq.tags.version: "15"
     restart: always
     environment:
       POSTGRES_USER: postgres
